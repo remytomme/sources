@@ -73,17 +73,17 @@ fn test_sort_filter_default_behavior() {
 }
 
 #[aidoku_test]
-fn test_check_filter_inversion() {
+fn test_select_filter_inversion() {
 	let processor = create_processor();
 
 	let filters = vec![
-		FilterValue::Check {
-			id: "genres_soft_search".to_string(),
-			value: 0, // Unchecked should enable soft search
+		FilterValue::Select {
+			id: "genres_match_mode".to_string(),
+			value: "any".to_string(), // Unchecked should enable soft search
 		},
-		FilterValue::Check {
-			id: "tags_soft_search".to_string(),
-			value: 1, // Checked should be ignored
+		FilterValue::Select {
+			id: "tags_match_mode".to_string(),
+			value: "all".to_string(), // Checked should be ignored
 		},
 	];
 

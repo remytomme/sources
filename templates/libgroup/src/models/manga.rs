@@ -1,9 +1,10 @@
 use aidoku::{
 	ContentRating, Manga, MangaStatus, UpdateStrategy, Viewer,
 	alloc::{String, Vec},
-	prelude::*,
 };
 use serde::Deserialize;
+
+use crate::endpoints::Url;
 
 use super::common::{
 	LibGroupAgeRestriction, LibGroupCover, LibGroupMediaType, LibGroupStatus, LibGroupTag,
@@ -33,12 +34,19 @@ pub struct LibGroupAuthor {
 	pub rus_name: Option<String>,
 }
 
+#[derive(Default, Deserialize, Debug, Clone)]
+#[serde(default)]
+pub struct LibGroupCoverItem {
+	pub cover: LibGroupCover,
+	pub order: i32,
+}
+
 impl LibGroupManga {
-	pub fn into_manga(self, base_url: &str) -> Manga {
+	pub fn into_manga(self, base_url: &str, cover_quality: &str) -> Manga {
 		Manga {
 			key: self.slug_url.clone(),
 			title: self.rus_name.clone(),
-			cover: Some(self.cover.default.clone()),
+			cover: Some(self.cover.get_cover_url(cover_quality)),
 			artists: self.artists.map(|artists| {
 				artists
 					.iter()
@@ -62,7 +70,7 @@ impl LibGroupManga {
 					.collect()
 			}),
 			description: self.summary.clone(),
-			url: Some(format!("{}/ru/manga/{}", base_url, self.slug_url.clone())),
+			url: Some(Url::manga_page(base_url, &self.slug_url)),
 			tags: self
 				.tags
 				.map(|tags| tags.iter().map(|tag| tag.name.clone()).collect()),

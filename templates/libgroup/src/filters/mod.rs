@@ -31,10 +31,10 @@ impl FilterProcessor {
 			} => {
 				self.process_sort_filter(&mut params, &id, index, ascending);
 			}
-			FilterValue::Check { id, value } => {
-				self.process_check_filter(&mut params, &id, value);
+			FilterValue::Check { .. } => {}
+			FilterValue::Select { id, value } => {
+				self.process_select_filter(&mut params, &id, value)
 			}
-			FilterValue::Select { .. } => {}
 			FilterValue::MultiSelect {
 				id,
 				included,
@@ -58,20 +58,32 @@ impl FilterProcessor {
 			Err(_) => return,
 		};
 
-		let (param_name, is_valid) = match id {
-			"chap_count_min" => ("chap_count_min", parsed_value >= 0),
-			"chap_count_max" => ("chap_count_max", true),
-			"year_min" => ("year_min", parsed_value >= 1930),
-			"year_max" => ("year_max", true),
-			"rating_min" => ("rating_min", parsed_value >= 0),
-			"rating_max" => ("rating_max", parsed_value <= 10),
-			"rate_min" => ("rate_min", parsed_value >= 0),
-			"rate_max" => ("rate_max", true),
-			_ => return,
-		};
-
-		if is_valid {
-			params.push((param_name, trimmed.to_string()));
+		match id {
+			"chap_count_min" if parsed_value >= 0 => {
+				params.push(("chap_count_min", trimmed.to_string()));
+			}
+			"chap_count_max" => {
+				params.push(("chap_count_max", trimmed.to_string()));
+			}
+			"year_min" if parsed_value >= 1930 => {
+				params.push(("year_min", trimmed.to_string()));
+			}
+			"year_max" => {
+				params.push(("year_max", trimmed.to_string()));
+			}
+			"rating_min" if parsed_value >= 0 => {
+				params.push(("rating_min", trimmed.to_string()));
+			}
+			"rating_max" if parsed_value <= 10 => {
+				params.push(("rating_max", trimmed.to_string()));
+			}
+			"rate_min" if parsed_value >= 0 => {
+				params.push(("rate_min", trimmed.to_string()));
+			}
+			"rate_max" => {
+				params.push(("rate_max", trimmed.to_string()));
+			}
+			_ => {}
 		}
 	}
 
@@ -82,44 +94,36 @@ impl FilterProcessor {
 		index: i32,
 		ascending: bool,
 	) {
-		if id != "sort" || (index == 0 && !ascending) {
-			return;
+		match (id, index) {
+			("sort", 0) => {}                                                // По популярности
+			("sort", 1) => params.push(("sort_by", "rate_avg".to_string())), // По рейтингу
+			("sort", 2) => params.push(("sort_by", "views".to_string())),    // По просмотрам
+			("sort", 3) => params.push(("sort_by", "chap_count".to_string())), // Количеству глав
+			("sort", 4) => params.push(("sort_by", "releaseDate".to_string())), // Дате релиза
+			("sort", 5) => params.push(("sort_by", "last_chapter_at".to_string())), // Дате обновления
+			("sort", 6) => params.push(("sort_by", "created_at".to_string())), // Дате добавления
+			("sort", 7) => params.push(("sort_by", "name".to_string())),     // По названию (A-Z)
+			("sort", 8) => params.push(("sort_by", "rus_name".to_string())), // По названию (А-Я)
+			_ => {}
 		}
 
-		let sort_value = match index {
-			0 => None,                    // По популярности - default, don't include
-			1 => Some("rate_avg"),        // По рейтингу
-			2 => Some("views"),           // По просмотрам
-			3 => Some("chap_count"),      // Количеству глав
-			4 => Some("releaseDate"),     // Дате релиза
-			5 => Some("last_chapter_at"), // Дате обновления
-			6 => Some("created_at"),      // Дате добавления
-			7 => Some("name"),            // По названию (A-Z)
-			8 => Some("rus_name"),        // По названию (А-Я)
-			_ => None,
-		};
-
-		if let Some(sort_value) = sort_value {
-			params.push(("sort_by", sort_value.to_string()));
-		}
-
-		if ascending {
-			params.push(("sort_type", "asc".to_string()));
+		match id {
+			"sort" if ascending && index > 0 => params.push(("sort_type", "asc".to_string())),
+			_ => {}
 		}
 	}
 
-	fn process_check_filter(&self, params: &mut Vec<(&'static str, String)>, id: &str, value: i32) {
-		if value != 0 {
-			return;
+	fn process_select_filter(
+		&self,
+		params: &mut Vec<(&'static str, String)>,
+		id: &str,
+		value: String,
+	) {
+		match (id, value.as_str()) {
+			("genres_match_mode", "any") => params.push(("genres_soft_search", "1".to_string())),
+			("tags_match_mode", "any") => params.push(("tags_soft_search", "1".to_string())),
+			_ => {}
 		}
-
-		let param_name = match id {
-			"genres_soft_search" => "genres_soft_search",
-			"tags_soft_search" => "tags_soft_search",
-			_ => return,
-		};
-
-		params.push((param_name, "1".to_string()));
 	}
 
 	fn process_multiselect_filter(
@@ -129,25 +133,36 @@ impl FilterProcessor {
 		included: &[String],
 		excluded: &[String],
 	) {
-		let (include_param, exclude_param) = match id {
-			"age_rating" => ("caution[]", None),
-			"type" => ("types[]", None),
-			"format" => ("format[]", Some("format_exclude[]")),
-			"title_status" => ("status[]", None),
-			"translation_status" => ("scanlate_status[]", None),
-			"genres" => ("genres[]", Some("genres_exclude[]")),
-			"tags" => ("tags[]", Some("tags_exclude[]")),
-			_ => return,
+		let mut add_values = |param: &'static str, values: &[String]| {
+			params.extend(values.iter().map(|v| (param, v.clone())));
 		};
 
-		for value in included {
-			params.push((include_param, value.clone()));
-		}
-
-		if let Some(exclude_param) = exclude_param {
-			for value in excluded {
-				params.push((exclude_param, value.clone()));
+		match id {
+			"age_rating" => {
+				add_values("caution[]", included);
 			}
+			"type" => {
+				add_values("types[]", included);
+			}
+			"format" => {
+				add_values("format[]", included);
+				add_values("format_exclude[]", excluded);
+			}
+			"title_status" => {
+				add_values("status[]", included);
+			}
+			"translation_status" => {
+				add_values("scanlate_status[]", included);
+			}
+			"genres" => {
+				add_values("genres[]", included);
+				add_values("genres_exclude[]", excluded);
+			}
+			"tags" => {
+				add_values("tags[]", included);
+				add_values("tags_exclude[]", excluded);
+			}
+			_ => {}
 		}
 	}
 }

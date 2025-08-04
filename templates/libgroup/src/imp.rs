@@ -1,7 +1,6 @@
 use aidoku::{
-	Chapter, DeepLinkResult, FilterValue, HomeComponent, HomeComponentValue, HomeLayout,
-	HomePartialResult, Link, Listing, ListingKind, Manga, MangaPageResult, Page, PageContext,
-	Result,
+	Chapter, FilterValue, HomeComponent, HomeComponentValue, HomeLayout, HomePartialResult, Link,
+	Listing, ListingKind, Manga, MangaPageResult, Page, PageContext, Result,
 	alloc::{String, Vec, string::ToString, vec},
 	imports::{net::Request, std::send_partial_result},
 };
@@ -11,9 +10,12 @@ use crate::{
 	filters::FilterProcessor,
 	models::{
 		chapter::LibGroupChapterListItem,
-		responses::{ChapterResponse, ChaptersResponse, MangaDetailResponse, MangaListResponse},
+		responses::{
+			ChapterResponse, ChaptersResponse, MangaCoversResponse, MangaDetailResponse,
+			MangaListResponse,
+		},
 	},
-	settings::get_api_url,
+	settings::{get_api_url, get_cover_quality_url},
 };
 
 use super::Params;
@@ -35,6 +37,7 @@ pub trait Impl {
 		let api_url = get_api_url();
 		let site_id = &params.site_id;
 		let base_url = &params.base_url;
+		let cover_quality = get_cover_quality_url();
 
 		let mut query_params = Vec::new();
 
@@ -62,7 +65,7 @@ pub trait Impl {
 		let entries: Vec<Manga> = response
 			.data
 			.into_iter()
-			.map(|manga_lib_manga| manga_lib_manga.into_manga(base_url))
+			.map(|manga_lib_manga| manga_lib_manga.into_manga(base_url, &cover_quality))
 			.collect();
 
 		let has_next_page = response.meta.has_next_page.unwrap_or_default();
@@ -82,12 +85,13 @@ pub trait Impl {
 	) -> Result<Manga> {
 		let api_url = get_api_url();
 		let base_url = &params.base_url;
-		let manga_slug = manga.key.clone();
+		let cover_quality = get_cover_quality_url();
+		let slug_url = manga.key.clone();
 
 		if needs_details {
 			let details_url = Url::manga_details_with_fields(
 				&api_url,
-				&manga_slug,
+				&slug_url,
 				&["summary", "tags", "authors", "artists"],
 			);
 			manga.copy_from(
@@ -95,7 +99,7 @@ pub trait Impl {
 					.send()?
 					.get_json::<MangaDetailResponse>()?
 					.data
-					.into_manga(base_url),
+					.into_manga(base_url, &cover_quality),
 			);
 
 			if needs_chapters {
@@ -104,7 +108,7 @@ pub trait Impl {
 		}
 
 		if needs_chapters {
-			let chapters_url = Url::MangaChapters { slug: &manga_slug }.build(&api_url);
+			let chapters_url = Url::manga_chapters(base_url, &slug_url);
 
 			let chapters = LibGroupChapterListItem::flatten_chapters(
 				Request::get(chapters_url)?
@@ -112,7 +116,7 @@ pub trait Impl {
 					.get_json::<ChaptersResponse>()?
 					.data,
 				base_url,
-				&manga_slug,
+				&slug_url,
 			);
 
 			manga.chapters = Some(chapters);
@@ -123,14 +127,14 @@ pub trait Impl {
 
 	fn get_page_list(&self, params: &Params, manga: Manga, chapter: Chapter) -> Result<Vec<Page>> {
 		let api_url = get_api_url();
-		let manga_slug = manga.key.as_str();
+		let slug_url = manga.key.as_str();
 
 		let chapter_number = chapter.chapter_number.unwrap_or_default();
 		let volume = chapter.volume_number.unwrap_or_default();
 		let branch_id = None;
 
 		let pages_url =
-			Url::chapter_pages_with_params(&api_url, manga_slug, branch_id, chapter_number, volume);
+			Url::chapter_pages_with_params(&api_url, slug_url, branch_id, chapter_number, volume);
 
 		let pages = Request::get(pages_url)?
 			.send()?
@@ -145,6 +149,7 @@ pub trait Impl {
 		let api_url = get_api_url();
 		let site_id = &params.site_id;
 		let base_url = &params.base_url;
+		let cover_quality = get_cover_quality_url();
 
 		send_partial_result(&HomePartialResult::Layout(HomeLayout {
 			components: vec![HomeComponent {
@@ -165,7 +170,7 @@ pub trait Impl {
 			.data
 			.into_iter()
 			.map(|manga_lib_manga| {
-				let manga: Manga = manga_lib_manga.into_manga(base_url);
+				let manga: Manga = manga_lib_manga.into_manga(base_url, &cover_quality);
 				Link::from(manga)
 			})
 			.collect();
@@ -194,6 +199,7 @@ pub trait Impl {
 	) -> Result<MangaPageResult> {
 		let api_url = get_api_url();
 		let base_url = &params.base_url;
+		let cover_quality = get_cover_quality_url();
 		let page_str = page.to_string();
 
 		let listing_params = match listing.name.as_str() {
@@ -211,7 +217,7 @@ pub trait Impl {
 		let entries: Vec<Manga> = response
 			.data
 			.into_iter()
-			.map(|manga_lib_manga| manga_lib_manga.into_manga(base_url))
+			.map(|manga_lib_manga| manga_lib_manga.into_manga(base_url, &cover_quality))
 			.collect();
 
 		let has_next_page = response.meta.has_next_page.unwrap_or_default();
@@ -224,18 +230,31 @@ pub trait Impl {
 
 	fn get_image_request(
 		&self,
-		_params: &Params,
+		params: &Params,
 		url: String,
 		_context: Option<PageContext>,
 	) -> Result<Request> {
 		let api_url = get_api_url();
+		let site_id = &params.site_id;
 
 		Ok(Request::get(url)?
 			.header("Referer", &api_url)
+			.header("Site-Id", &site_id.to_string())
 			.header("User-Agent", USER_AGENT))
 	}
 
-	fn handle_deep_link(&self, _params: &Params, _url: String) -> Result<Option<DeepLinkResult>> {
-		Ok(None)
+	fn get_alternate_covers(&self, _params: &Params, manga: Manga) -> Result<Vec<String>> {
+		let api_url = get_api_url();
+		let cover_quality = get_cover_quality_url();
+
+		let covers_url = Url::manga_covers(&api_url, &manga.key);
+
+		Ok(Request::get(covers_url)?
+			.send()?
+			.get_json::<MangaCoversResponse>()?
+			.data
+			.iter()
+			.map(|c| c.cover.get_cover_url(&cover_quality))
+			.collect())
 	}
 }

@@ -4,7 +4,10 @@ use serde::Deserialize;
 #[derive(Default, Deserialize, Debug, Clone)]
 #[serde(default)]
 pub struct LibGroupCover {
+	pub thumbnail: Option<String>,
 	pub default: String,
+	pub md: Option<String>,
+	pub orig: Option<String>,
 }
 
 #[derive(Default, Deserialize, Debug, Clone)]
@@ -47,4 +50,32 @@ pub struct LibGroupTeam {
 #[serde(default)]
 pub struct LibGroupRestrictedView {
 	pub is_open: bool,
+}
+
+impl LibGroupCover {
+	/// Get cover URL based on user preference with fallback logic
+	pub fn get_cover_url(&self, quality: &str) -> String {
+		match quality {
+			"thumbnail" => {
+				// thumbnail > default
+				self.thumbnail.as_ref().unwrap_or(&self.default).clone()
+			}
+			"md" => {
+				// md > default
+				self.md.as_ref().unwrap_or(&self.default).clone()
+			}
+			"orig" => {
+				// orig > md > default
+				self.orig
+					.as_ref()
+					.or(self.md.as_ref())
+					.unwrap_or(&self.default)
+					.clone()
+			}
+			"default" | _ => {
+				// default or unknown quality
+				self.default.clone()
+			}
+		}
+	}
 }

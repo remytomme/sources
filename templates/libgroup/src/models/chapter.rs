@@ -9,7 +9,7 @@ use aidoku::{
 use chrono::DateTime;
 use serde::Deserialize;
 
-use crate::cdn::get_selected_image_server_url;
+use crate::{cdn::get_selected_image_server_url, endpoints::Url};
 
 use super::common::{LibGroupRestrictedView, LibGroupTeam};
 
@@ -70,16 +70,12 @@ impl LibGroupChapterListItem {
 						.ok()
 						.map(|d| d.timestamp()),
 					scanlators: Some(scanlators),
-					url: Some(format!(
-						"{}/ru/{}/read/v{}/c{}{}",
+					url: Some(Url::chapter_page(
 						base_url,
 						slug_url,
-						volume_number.unwrap_or_default(),
-						chapter_number.unwrap_or_default(),
-						branch
-							.branch_id
-							.map(|id| format!("?bid={id}"))
-							.unwrap_or_default()
+						volume_number,
+						chapter_number,
+						branch.branch_id,
 					)),
 					locked,
 					..Default::default()

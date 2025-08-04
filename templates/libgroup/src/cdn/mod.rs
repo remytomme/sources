@@ -1,9 +1,12 @@
-use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use core::sync::atomic::{AtomicBool, Ordering};
 
 use aidoku::{
 	Result,
 	alloc::{String, collections::btree_map::BTreeMap},
-	imports::{net::Request, std::sleep},
+	imports::{
+		net::Request,
+		std::{current_date, sleep},
+	},
 };
 use spin::{Once, RwLock};
 
@@ -15,19 +18,19 @@ use crate::{
 
 struct CacheEntry {
 	data: BTreeMap<u8, BTreeMap<String, String>>,
-	created_at: u64,
+	created_at: i64,
 }
 
 impl CacheEntry {
 	fn new(data: BTreeMap<u8, BTreeMap<String, String>>) -> Self {
 		Self {
 			data,
-			created_at: get_monotonic_counter(),
+			created_at: current_date(),
 		}
 	}
 
-	fn is_expired(&self, ttl_ticks: u64) -> bool {
-		get_monotonic_counter().saturating_sub(self.created_at) > ttl_ticks
+	fn is_expired(&self, ttl_seconds: i64) -> bool {
+		current_date() - self.created_at > ttl_seconds
 	}
 }
 
@@ -49,9 +52,9 @@ impl ImageServerCache {
 		{
 			let cache_guard = self.cache.read();
 			if let Some(ref entry) = *cache_guard
-				&& !entry.is_expired(36000)
+				&& !entry.is_expired(3600)
+			// 1 hour TTL
 			{
-				// ~1 hour in ticks
 				return self.extract_url(&entry.data, site_id);
 			}
 		}
@@ -135,11 +138,6 @@ impl ImageServerCache {
 }
 
 static CACHE: Once<ImageServerCache> = Once::new();
-static COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn get_monotonic_counter() -> u64 {
-	COUNTER.fetch_add(1, Ordering::Relaxed)
-}
 
 fn get_cache() -> &'static ImageServerCache {
 	CACHE.call_once(ImageServerCache::new)

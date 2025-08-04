@@ -6,35 +6,34 @@ const TEST_BASE_URL: &str = "https://api.cdnlibs.org";
 #[aidoku_test]
 fn basic_urls() {
 	assert_eq!(
-		Url::MangaSearch.build(TEST_BASE_URL),
+		Url::manga_search(TEST_BASE_URL),
 		"https://api.cdnlibs.org/api/manga"
 	);
 
 	assert_eq!(
-		Url::MangaDetails { slug: "test-manga" }.build(TEST_BASE_URL),
+		Url::manga_details(TEST_BASE_URL, "test-manga"),
 		"https://api.cdnlibs.org/api/manga/test-manga"
 	);
 
 	assert_eq!(
-		Url::MangaChapters { slug: "test-manga" }.build(TEST_BASE_URL),
+		Url::manga_chapters(TEST_BASE_URL, "test-manga"),
 		"https://api.cdnlibs.org/api/manga/test-manga/chapters"
 	);
 
 	assert_eq!(
-		Url::Constants.build(TEST_BASE_URL),
+		Url::manga_covers(TEST_BASE_URL, "test-manga"),
+		"https://api.cdnlibs.org/api/manga/test-manga/covers"
+	);
+
+	assert_eq!(
+		Url::constants(TEST_BASE_URL),
 		"https://api.cdnlibs.org/api/constants"
 	);
 }
 
 #[aidoku_test]
 fn chapter_pages_url() {
-	let url = Url::ChapterPages {
-		slug: "test-manga",
-		branch_id: Some(123),
-		number: 1.5,
-		volume: 2.0,
-	}
-	.build(TEST_BASE_URL);
+	let url = Url::chapter_pages(TEST_BASE_URL, "test-manga");
 
 	assert_eq!(url, "https://api.cdnlibs.org/api/manga/test-manga/chapter");
 }
@@ -76,6 +75,13 @@ fn manga_details_with_fields() {
 		url,
 		"https://api.cdnlibs.org/api/manga/test-manga?fields[]=summary&fields[]=tags&fields[]=authors&fields[]=artists"
 	);
+}
+
+#[aidoku_test]
+fn manga_covers() {
+	let url = Url::manga_covers(TEST_BASE_URL, "test-manga");
+
+	assert_eq!(url, "https://api.cdnlibs.org/api/manga/test-manga/covers");
 }
 
 #[aidoku_test]
@@ -133,8 +139,8 @@ fn trailing_slash_handling() {
 	let base_with_slash = "https://api.example.com/";
 	let base_without_slash = "https://api.example.com";
 
-	let url1 = Url::MangaSearch.build(base_with_slash);
-	let url2 = Url::MangaSearch.build(base_without_slash);
+	let url1 = Url::manga_search(base_with_slash);
+	let url2 = Url::manga_search(base_without_slash);
 
 	assert_eq!(url1, url2);
 	assert_eq!(url1, "https://api.example.com/api/manga");

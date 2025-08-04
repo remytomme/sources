@@ -2,50 +2,149 @@ use aidoku::{
 	alloc::{String, Vec, string::ToString, vec},
 	prelude::*,
 };
-use strum::Display;
 
-#[derive(Display, Debug, Clone)]
-pub enum Url<'a> {
-	#[strum(serialize = "/api/manga")]
-	MangaSearch,
+/// URL builder for API endpoints
+pub struct Url;
 
-	#[strum(serialize = "/api/manga/{slug}")]
-	MangaDetails { slug: &'a str },
+impl Url {
+	const BASE_PATH: &'static str = "/api";
 
-	#[strum(serialize = "/api/manga/{slug}/chapters")]
-	MangaChapters { slug: &'a str },
+	/// Build manga search URL
+	pub fn manga_search(base_url: &str) -> String {
+		format!(
+			"{}{}/manga",
+			Self::normalize_base(base_url),
+			Self::BASE_PATH
+		)
+	}
 
-	#[strum(serialize = "/api/manga/{slug}/chapter")]
-	ChapterPages {
-		slug: &'a str,
-		branch_id: Option<u32>,
-		number: f32,
-		volume: f32,
-	},
+	/// Build manga details URL
+	pub fn manga_details(base_url: &str, slug_url: &str) -> String {
+		format!(
+			"{}{}/manga/{}",
+			Self::normalize_base(base_url),
+			Self::BASE_PATH,
+			slug_url
+		)
+	}
 
-	#[strum(serialize = "/api/constants")]
-	Constants,
-}
+	/// Build manga page URL
+	pub fn manga_page(base_url: &str, slug_url: &str) -> String {
+		format!("{}/ru/manga/{}", Self::normalize_base(base_url), slug_url)
+	}
 
-impl<'a> Url<'a> {
-	/// Build full URL with base URL from defaults_get
-	pub fn build(&self, base_url: &str) -> String {
-		let base = base_url.trim_end_matches('/');
+	/// Build manga chapters URL
+	pub fn manga_chapters(base_url: &str, slug_url: &str) -> String {
+		format!(
+			"{}{}/manga/{}/chapters",
+			Self::normalize_base(base_url),
+			Self::BASE_PATH,
+			slug_url
+		)
+	}
 
-		match self {
-			Self::MangaSearch => format!("{base}/api/manga"),
-			Self::MangaDetails { slug } => format!("{base}/api/manga/{slug}"),
-			Self::MangaChapters { slug } => format!("{base}/api/manga/{slug}/chapters"),
-			Self::ChapterPages { slug, .. } => format!("{base}/api/manga/{slug}/chapter"),
-			Self::Constants => format!("{base}/api/constants"),
-		}
+	/// Build chapter pages URL
+	pub fn chapter_pages(base_url: &str, slug_url: &str) -> String {
+		format!(
+			"{}{}/manga/{}/chapter",
+			Self::normalize_base(base_url),
+			Self::BASE_PATH,
+			slug_url
+		)
+	}
+
+	/// Build chapter read URL
+	pub fn chapter_page(
+		base_url: &str,
+		slug_url: &str,
+		volume_number: Option<f32>,
+		chapter_number: Option<f32>,
+		branch_id: Option<i32>,
+	) -> String {
+		let branch_param = branch_id
+			.map(|id| format!("?bid={}", id))
+			.unwrap_or_default();
+
+		format!(
+			"{}/ru/{}/read/v{}/c{}{}",
+			Self::normalize_base(base_url),
+			slug_url,
+			volume_number.unwrap_or_default(),
+			chapter_number.unwrap_or_default(),
+			branch_param
+		)
+	}
+
+	/// Build manga covers URL
+	pub fn manga_covers(base_url: &str, slug_url: &str) -> String {
+		format!(
+			"{}{}/manga/{}/covers",
+			Self::normalize_base(base_url),
+			Self::BASE_PATH,
+			slug_url
+		)
+	}
+
+	/// Build constants URL
+	pub fn constants(base_url: &str) -> String {
+		format!(
+			"{}{}/constants",
+			Self::normalize_base(base_url),
+			Self::BASE_PATH
+		)
 	}
 
 	/// Create manga search URL with query parameters
 	pub fn manga_search_with_params(base_url: &str, params: &[(&str, &str)]) -> String {
-		let base = Self::MangaSearch.build(base_url);
+		let base = Self::manga_search(base_url);
+		Self::append_query_params(base, params)
+	}
+
+	/// Create manga details URL with fields
+	pub fn manga_details_with_fields(base_url: &str, slug: &str, fields: &[&str]) -> String {
+		let base = Self::manga_details(base_url, slug);
+		let params: Vec<(&str, &str)> = fields.iter().map(|field| ("fields[]", *field)).collect();
+		Self::append_query_params(base, &params)
+	}
+
+	/// Create chapter pages URL with parameters
+	pub fn chapter_pages_with_params(
+		base_url: &str,
+		slug: &str,
+		branch_id: Option<u32>,
+		number: f32,
+		volume: f32,
+	) -> String {
+		let base = Self::chapter_pages(base_url, slug);
+		let mut params = vec![
+			("number", number.to_string()),
+			("volume", volume.to_string()),
+		];
+
+		if let Some(branch) = branch_id {
+			params.push(("branch_id", branch.to_string()));
+		}
+
+		let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (*k, v.as_str())).collect();
+		Self::append_query_params(base, &param_refs)
+	}
+
+	/// Create constants URL with fields
+	pub fn constants_with_fields(base_url: &str, fields: &[&str]) -> String {
+		let base = Self::constants(base_url);
+		let params: Vec<(&str, &str)> = fields.iter().map(|field| ("fields[]", *field)).collect();
+		Self::append_query_params(base, &params)
+	}
+
+	/// Normalize base URL by removing trailing slash
+	fn normalize_base(base_url: &str) -> &str {
+		base_url.trim_end_matches('/')
+	}
+
+	/// Append query parameters to URL
+	fn append_query_params(base_url: String, params: &[(&str, &str)]) -> String {
 		if params.is_empty() {
-			return base;
+			return base_url;
 		}
 
 		let query_string = params
@@ -54,69 +153,7 @@ impl<'a> Url<'a> {
 			.collect::<Vec<_>>()
 			.join("&");
 
-		format!("{base}?{query_string}")
-	}
-
-	/// Create manga details URL with fields
-	pub fn manga_details_with_fields(base_url: &str, slug: &'a str, fields: &[&str]) -> String {
-		let base = Self::MangaDetails { slug }.build(base_url);
-		if fields.is_empty() {
-			return base;
-		}
-
-		let query_string = fields
-			.iter()
-			.map(|field| format!("fields[]={field}"))
-			.collect::<Vec<_>>()
-			.join("&");
-
-		format!("{base}?{query_string}")
-	}
-
-	/// Create chapter pages URL with parameters
-	pub fn chapter_pages_with_params(
-		base_url: &str,
-		slug: &'a str,
-		branch_id: Option<u32>,
-		number: f32,
-		volume: f32,
-	) -> String {
-		let base = Self::ChapterPages {
-			slug,
-			branch_id,
-			number,
-			volume,
-		}
-		.build(base_url);
-		let mut params = vec![format!("number={}", number), format!("volume={}", volume)];
-
-		if let Some(branch) = branch_id {
-			params.push(format!("branch_id={branch}"));
-		}
-
-		format!("{}?{}", base, params.join("&"))
-	}
-
-	/// Create image servers URL with fields
-	pub fn constants_with_fields(base_url: &str, fields: &[&str]) -> String {
-		let base = Self::Constants.build(base_url);
-		if fields.is_empty() {
-			return base;
-		}
-
-		let query_string = fields
-			.iter()
-			.map(|field| format!("fields[]={field}"))
-			.collect::<Vec<_>>()
-			.join("&");
-
-		format!("{base}?{query_string}")
-	}
-}
-
-impl From<Url<'_>> for String {
-	fn from(url: Url<'_>) -> Self {
-		url.to_string()
+		format!("{base_url}?{query_string}")
 	}
 }
 

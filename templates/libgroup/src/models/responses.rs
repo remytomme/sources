@@ -1,7 +1,7 @@
 use aidoku::alloc::Vec;
 use serde::Deserialize;
 
-use crate::models::common::LibGroupMeta;
+use crate::models::{common::LibGroupMeta, manga::LibGroupCoverItem};
 
 use super::{
 	chapter::{LibGroupChapter, LibGroupChapterListItem},
@@ -32,6 +32,12 @@ pub struct ChaptersResponse {
 #[serde(default)]
 pub struct ChapterResponse {
 	pub data: LibGroupChapter,
+}
+
+#[derive(Default, Deserialize, Debug, Clone)]
+#[serde(default)]
+pub struct MangaCoversResponse {
+	pub data: Vec<LibGroupCoverItem>,
 }
 
 #[derive(Default, Deserialize, Debug, Clone)]
