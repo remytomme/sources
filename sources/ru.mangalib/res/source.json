@@ -1,0 +1,12 @@
+{
+	"info": {
+		"id": "ru.mangalib",
+		"name": "MangaLib",
+		"version": 5,
+		"url": "https://mangalib.me",
+		"contentRating": 1,
+		"languages": [
+			"ru"
+		]
+	}
+}
