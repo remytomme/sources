@@ -61,9 +61,7 @@ impl Url {
 		chapter_number: Option<f32>,
 		branch_id: Option<i32>,
 	) -> String {
-		let branch_param = branch_id
-			.map(|id| format!("?bid={}", id))
-			.unwrap_or_default();
+		let branch_param = branch_id.map(|id| format!("?bid={id}")).unwrap_or_default();
 
 		format!(
 			"{}/ru/{}/read/v{}/c{}{}",

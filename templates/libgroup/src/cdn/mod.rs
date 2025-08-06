@@ -11,6 +11,7 @@ use aidoku::{
 use spin::{Once, RwLock};
 
 use crate::{
+	auth::AuthRequest,
 	endpoints::Url,
 	models::responses::ConstantsResponse,
 	settings::{get_api_url, get_image_server_url},
@@ -110,7 +111,7 @@ impl ImageServerCache {
 		let constants_url = Url::constants_with_fields(&api_url, &["imageServers"]);
 
 		let response = Request::get(constants_url)?
-			.send()?
+			.authed()?
 			.get_json::<ConstantsResponse>()?;
 
 		let mut servers_by_site: BTreeMap<u8, BTreeMap<String, String>> = BTreeMap::new();

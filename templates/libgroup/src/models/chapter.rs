@@ -1,9 +1,6 @@
 use aidoku::{
 	Chapter, Page, PageContent,
-	alloc::{
-		Vec,
-		string::{String, ToString},
-	},
+	alloc::{String, Vec, string::ToString},
 	prelude::*,
 };
 use chrono::DateTime;

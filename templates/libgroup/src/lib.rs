@@ -6,6 +6,7 @@ use aidoku::{
 	imports::net::Request,
 };
 
+mod auth;
 mod cdn;
 mod endpoints;
 mod filters;

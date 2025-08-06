@@ -1,5 +1,5 @@
-use aidoku::alloc::Vec;
-use serde::Deserialize;
+use aidoku::alloc::{String, Vec};
+use serde::{Deserialize, Serialize};
 
 use crate::models::{common::LibGroupMeta, manga::LibGroupCoverItem};
 
@@ -44,4 +44,11 @@ pub struct MangaCoversResponse {
 #[serde(default)]
 pub struct ConstantsResponse {
 	pub data: LibGroupConstantsData,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct TokenResponse {
+	pub access_token: Option<String>,
+	pub refresh_token: Option<String>,
+	pub expires_in: Option<i64>,
 }

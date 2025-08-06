@@ -72,7 +72,7 @@ impl LibGroupCover {
 					.unwrap_or(&self.default)
 					.clone()
 			}
-			"default" | _ => {
+			_ => {
 				// default or unknown quality
 				self.default.clone()
 			}

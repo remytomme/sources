@@ -6,6 +6,7 @@ use aidoku::{
 };
 
 use crate::{
+	auth::AuthRequest,
 	endpoints::Url,
 	filters::FilterProcessor,
 	models::{
@@ -59,7 +60,7 @@ pub trait Impl {
 		let search_url = Url::manga_search_with_params(&api_url, &params_for_url);
 
 		let response = Request::get(search_url)?
-			.send()?
+			.authed()?
 			.get_json::<MangaListResponse>()?;
 
 		let entries: Vec<Manga> = response
@@ -96,7 +97,7 @@ pub trait Impl {
 			);
 			manga.copy_from(
 				Request::get(details_url)?
-					.send()?
+					.authed()?
 					.get_json::<MangaDetailResponse>()?
 					.data
 					.into_manga(base_url, &cover_quality),
@@ -112,7 +113,7 @@ pub trait Impl {
 
 			let chapters = LibGroupChapterListItem::flatten_chapters(
 				Request::get(chapters_url)?
-					.send()?
+					.authed()?
 					.get_json::<ChaptersResponse>()?
 					.data,
 				base_url,
@@ -137,7 +138,7 @@ pub trait Impl {
 			Url::chapter_pages_with_params(&api_url, slug_url, branch_id, chapter_number, volume);
 
 		let pages = Request::get(pages_url)?
-			.send()?
+			.authed()?
 			.get_json::<ChapterResponse>()?
 			.data
 			.into_pages(&params.site_id);
@@ -163,7 +164,7 @@ pub trait Impl {
 			Url::manga_search_with_params(&api_url, &[("site_id[]", &site_id.to_string())]);
 
 		let response = Request::get(popular_url)?
-			.send()?
+			.authed()?
 			.get_json::<MangaListResponse>()?;
 
 		let manga_entries: Vec<Link> = response
@@ -211,7 +212,7 @@ pub trait Impl {
 
 		let listing_url = Url::manga_search_with_params(&api_url, &listing_params);
 		let response = Request::get(listing_url)?
-			.send()?
+			.authed()?
 			.get_json::<MangaListResponse>()?;
 
 		let entries: Vec<Manga> = response
@@ -250,7 +251,7 @@ pub trait Impl {
 		let covers_url = Url::manga_covers(&api_url, &manga.key);
 
 		Ok(Request::get(covers_url)?
-			.send()?
+			.authed()?
 			.get_json::<MangaCoversResponse>()?
 			.data
 			.iter()
